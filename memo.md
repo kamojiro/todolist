@@ -1,0 +1,1 @@
+- [actix web - mongodb example](https://github.com/mehmetsefabalik/rust-mongodb-example)
