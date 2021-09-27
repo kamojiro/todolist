@@ -1,1 +1,3 @@
 - [actix web - mongodb example](https://github.com/mehmetsefabalik/rust-mongodb-example)
+- [Getting started with MongoDB and Redis in Rust](https://romankudryashov.com/blog/2021/06/mongodb-redis-rust/)
+- [mongodb-redis](https://github.com/rkudryashov/exploring-rust-ecosystem/tree/master/mongodb-redis)
