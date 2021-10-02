@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use actix_web::{App, HttpResponse, HttpServer, ResponseError, get, http::header, post, web};
 use askama::Template;
-use mongodb::options::ClientOptions;
-use serde::Deserialize;
-use thiserror::Error;
+use errors::CustomError;
+use tokio;
+use crate::db::MongoDbClient;
+use crate::model::TodoEntry;
 
-struct TodoEntry {
-    id: u32,
-    text: String,
-}
+mod db;
+mod model;
+mod errors;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -15,29 +17,16 @@ struct IndexTemplate {
     entries: Vec<TodoEntry>,
 }
 
-#[derive(Error, Debug)]
-enum MyError {
-    #[error("Failed to render HTML")]
-    AskamaError(#[from] askama::Error),
-}
-
-impl ResponseError for MyError {}
-
-   
-
 #[get("/")]
-async fn index(db: web::Data<Pool<SqliteConnectionManager>>) -> Result<HttpResponse, MyError> {
-    let conn = db.get()?;
-    let mut statement = conn.prepare("SELECT id, text FROM todo")?;
-    let rows = statement.query_map(params![], |row| {
-        let id = row.get(0)?;
-        let text = row.get(1)?;
-        Ok(TodoEntry { id, text })
-    })?;
-
+async fn index(mongodb_client: web::Data<Arc<MongoDbClient>>) -> Result<HttpResponse, CustomError> {
     let mut entries = Vec::new();
+    let rows = match mongodb_client.get_all_todos().await{
+        Ok(x) => x,
+        Err(_) => Vec::new(),
+    };
+
     for row in rows {
-        entries.push(row?);
+        entries.push(row);
     }
     let html = IndexTemplate { entries };
     let response_body = html.render()?;
@@ -48,16 +37,13 @@ async fn index(db: web::Data<Pool<SqliteConnectionManager>>) -> Result<HttpRespo
 
 #[actix_web::main]
 async fn main() -> Result<(), actix_web::Error> {
-    let client_options = ClientOptions::pars("mongodb://localhost:27017").unwrap();
-    let client = Client::with_options(client_options).unwrap();
-    let bd = client.database("mydb")
-
+    let mongodb_uri = "mongodb://localhost:27017".to_string();
+    let mongodb_client = Arc::new(MongoDbClient::new(mongodb_uri).await);
+    
     HttpServer::new(move || {
         App::new()
             .service(index)
-            .service(add_todo)
-            .service(delete_todo)
-            .data(pool.clone())
+            .data(Arc::clone(&mongodb_client))
     })
         .bind("0.0.0.0:8080")?
         .run()
