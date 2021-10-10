@@ -46,7 +46,11 @@ impl MongoDbClient{
         Ok(result)
     }
 
-    pub async fn create_todo(&self, todo: TodoEntry) -> Result<TodoEntry>{
+    pub async fn create_todo(&self, input_text: &String) -> Result<TodoEntry>{
+        let todo = TodoEntry{
+            id: 1,
+            text: input_text.clone(),
+        };
         let collection = self.get_todos_collection().await;
         let insert_result = collection.insert_one(todo, None).await?;
         let filter = doc!{"_id": &insert_result.inserted_id};
